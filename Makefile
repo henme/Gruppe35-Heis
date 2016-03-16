@@ -1,36 +1,48 @@
-# Which compiler to use
+SRC = src
+OBJ = obj
+BIN = bin
+
+PROJECTS = $(patsubst $(SRC)/%, %, $(wildcard $(SRC)/*))
+
 CC = g++
+CFLAGS = -Wall -g -std=c++11
+LINKFLAGS = -Wall -g -lboost_system -lboost_thread -lcomedi -lm
 
-# Compiler flags go here.
-CFLAGS = -g -Wall -Wextra
+default:
+	@echo "Usage: make <PROJECT>|all"
+	@echo "Projects: $(PROJECTS)"
 
-# Linker flags go here.
-LDFLAGS = -lcomedi -lm
+all: $(PROJECTS)
 
-# list of sources
-ELEVSRC = elev.c io.c main.cpp ElevatorListEntry.cpp ButtonList.cpp fsm.cpp
+$(BIN):
+	@mkdir -p $@
 
-# program executable file name.
-TARGET = test
-
-# top-level rule, to compile everything.
-all: $(TARGET)
-
-# Define all object files.
-ELEVOBJ = $(ELEVSRC:.c=.o)
-
-# rule to link the program
-$(TARGET): $(ELEVOBJ)
-	$(CC) $^ -o $@ $(LDFLAGS)
-
-# Compile: create object files from C source files.
-%.o : %.c
-	$(CC) $(CFLAGS) -c $< -o $@ 
-
-# rule for cleaning re-compilable files.
 clean:
-	rm -f $(TARGET) $(ELEVOBJ)
+	rm -rf $(OBJ)
+	rm -rf $(BIN)
 
-rebuild:	clean all
+define PROJECT_template
 
-.PHONY: all rebuild clean
+SOURCES-$1 = $$(wildcard $$(SRC)/$1/*.cpp)
+OBJECTS-$1 = $$(patsubst $$(SRC)/$1/%.cpp,$$(OBJ)/$1/%.o,$$(SOURCES-$1))
+
+$1: $$(BIN)/$1
+
+run-$1: $$(BIN)/$1
+	@echo "\n\n===== RUNNING APPLICATION =====\n"
+	@$$<
+
+$$(OBJ)/$1/%.o: $$(SRC)/$1/%.cpp | $$(OBJ)/$1
+	$$(CC) $$(CFLAGS) -c $$< -o $$@
+
+$$(OBJ)/$1:
+	@mkdir -p $$@
+
+$$(BIN)/$1: $$(OBJECTS-$1) | $$(BIN)
+	$$(CC) $$(OBJECTS-$1) $$(LINKFLAGS) -o $$@
+
+endef
+
+$(foreach p, $(PROJECTS), \
+	$(eval $(call PROJECT_template,$(p)))\
+)
